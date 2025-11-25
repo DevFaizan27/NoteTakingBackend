@@ -9,6 +9,7 @@ import {
   deleteNote
 } from '../controllers/noteController.js';
 
+
 const router = express.Router();
 
 router.get('/', getAllNotes);

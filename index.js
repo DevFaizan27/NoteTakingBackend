@@ -1,41 +1,57 @@
-import connectToMongo from './database/db.js';
+// backend/src/server.js
 import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import cors from 'cors';
-import 'dotenv/config';
-import board from './routes/board.js';
-import task from './routes/task.js';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+import noteRoutes from './routes/note.js';
+import connectToMongo from './database/db.js';
+import { setupNoteSocket } from './sockets/noteSocket.js';
 
+dotenv.config();
 
-connectToMongo();
 const app = express();
-const port = 4000;
-
-
-const corsOptions = {
-    origin: true, // Allow all origins temporarily for testing
-    origin: ["http://localhost:5173","https://task-script-guru-frontend.vercel.app"],
-    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
-    credentials: true,
-    optionsSuccessStatus: 200,
-};
-
-app.use(express.json());
-app.use(cors(corsOptions));
-
-
-app.get('/', (req, res) => {
-    res.send('Server Working Fine')
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "https://note-taking-frontend-khaki.vercel.app" || "http://localhost:5173",
+    methods: ["GET", "POST"]
+  }
 });
 
 
-app.use('/api/v1/board', board);
+// Middleware
+app.use(helmet());
+app.use(cors({
+  origin:process.env.FRONTEND_URL|| "http://localhost:5173",
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-app.use('/api/v1/task', task);
+// Routes
+app.use('/api/notes', noteRoutes);
+
+
+// Socket setup
+setupNoteSocket(io);
 
 
 
 
+const PORT = 4000;
 
-app.listen(port, () => {
-    console.log(`Example app listening at http://localhost:${port}`);
-})
+const startServer = async () => {
+  try {
+    await connectToMongo();
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
